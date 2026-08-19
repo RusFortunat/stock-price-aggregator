@@ -1,2 +1,2 @@
 # stock-price-aggregator
-ETL Pipeline for public stock data implemented with dbt, AWS, FastApi, and deployed with Terraform
+Designed a pipeline that fetches granular financial data from some public API, aggregates it into readable format, and delivers it to a Swagger API endpoint. The data is loaded with AWS Lambda, delivered to S3 datalake, transformation to buiseness marts with dbt Athena, and delivered to the user with Python script. The whole process is orchestrated on a scheduled basis with Airflow DAG. 
