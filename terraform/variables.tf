@@ -60,3 +60,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "alpha_vantage_api_key" {
+  type      = string
+  sensitive = true
+}
