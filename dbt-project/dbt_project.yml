@@ -1,0 +1,11 @@
+name: stock_price_aggregator
+version: "0.0.1"
+config-version: 2
+
+profile: stock_price_aggregator
+
+model-paths: ["models"]
+
+models:
+  stock_price_aggregator:
+    +materialized: view

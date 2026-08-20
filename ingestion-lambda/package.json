@@ -1,0 +1,12 @@
+{
+  "name": "ingestion-lambda",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.3.0"
+  }
+}
