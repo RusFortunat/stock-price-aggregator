@@ -1,0 +1,76 @@
+# ---------- Terraform ----------
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
+*.tfplan
+
+# ---------- Python (ingestion helpers, scripts) ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.env
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---------- dbt ----------
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+dbt_project/.user.yml
+# keep profiles.yml out of git if it ever contains real creds/paths;
+# comment the next line out if you'd rather commit a templated version
+dbt_project/profiles.yml
+
+# ---------- Node / TypeScript (Lambda ingestion) ----------
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# ---------- AWS / Lambda packaging ----------
+*.zip
+.aws-sam/
+.serverless/
+
+# ---------- FastAPI / Python API layer ----------
+api/__pycache__/
+api/.venv/
+
+# ---------- MWAA / Airflow local testing ----------
+airflow.cfg
+airflow.db
+.airflow/
+logs/
+plugins/__pycache__/
+
+# ---------- Docker ----------
+*.log
+
+# ---------- Editor / OS ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---------- Secrets (just in case) ----------
+*.pem
+*.key
+.env.*
+!.env.example
