@@ -1,0 +1,102 @@
+name: Stock Price Aggregator Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Injestion Lambda
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build Lambda
+        working-directory: ingestion-lambda
+        run: |
+          npm ci
+          npm run build
+          cd dist
+          zip -r lambda.zip .
+
+      # FastAPI Docker image
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        working-directory: api
+        run: |
+          pip install -r requirements.txt
+
+      # dbt Docker image
+      - name: Build dbt Docker image
+        working-directory: dbt
+        run: |
+          docker build -t dbt-stock-price .
+
+  # ============================================================
+  # PUSH
+  # ============================================================
+  push:
+    name: Push Docker Image
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # AWS authentication goes here
+
+      - name: Login to ECR
+        ...
+
+      - name: Build Docker image
+        working-directory: dbt
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            $ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA
+
+  # ============================================================
+  # DEPLOY
+  # ============================================================
+  deploy:
+    name: Terraform Deploy
+    needs: push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # AWS authentication goes here
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
