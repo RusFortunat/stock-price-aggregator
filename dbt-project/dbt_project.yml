@@ -5,7 +5,29 @@ config-version: 2
 profile: stock_price_aggregator
 
 model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: target
+
+clean-targets:
+	- target
+	- dbt_packages
+	- logs
 
 models:
   stock_price_aggregator:
-    +materialized: view
+  
+    staging:
+      +materialized: table
+      +schema: "{{ env_var('STAGING_DATABASE')}}"
+    
+    
+    intermediate:
+      +materialized: table
+      +schema: "{{ env_var('INTERMEDIATE_DATABASE')}}"
+      
+    
+    marts:
+      +materialized: table
+      +schema: "{{ env_var('MARTS_DATABASE')}}"

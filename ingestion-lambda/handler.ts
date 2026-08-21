@@ -42,10 +42,12 @@ export const handler = async (event: LambdaEvent) => {
   const data = await response.json();
 
   // we need to remove metadata from the response for Glue Crawler to be able to infer the schema
-  const processedData = processStockData(ticker, data);
+  const processedData = processStockData(ticker, data)
+    .map(r => JSON.stringify(r)).join("\n");
 
-  const key = `raw/${ticker}/ingestion_date=${new Date().toISOString()}/data.json`;
-
+  const ingestionDate = new Date().toISOString().split("T")[0]; // "2026-08-21"
+  const key = `raw/stock_prices/ingestion_date=${ingestionDate}/data.json`;
+  
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET_NAME,
