@@ -2,9 +2,13 @@ FROM python:3.12-slim
 
 WORKDIR /dbt
 
-RUN pip install --no-cache-dir dbt-athena-community
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY dbt_project.yml .
-COPY models ./models
+COPY . .
 
-CMD ["dbt", "--help"]
+ENV DBT_PROFILES_DIR=/dbt
+
+# Airflow's EcsRunTaskOperator can override this (e.g. --select, --full-refresh),
+# but the image is runnable standalone with this default too.
+CMD ["dbt", "run", "--target", "prod"]

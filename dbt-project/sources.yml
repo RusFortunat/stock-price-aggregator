@@ -1,7 +1,24 @@
 version: 2
 
 sources:
-  - name: stock_data
-    schema: stock_data
+  - name: raw
+    database: AwsDataCatalog
+    schema: "{{ env_var('RAW_DATABASE')}}"
     tables:
-      - name: prices
+      - name: stock_prices
+        description: "Raw stock prices data"
+        columns:
+          - name: ticker
+            description: "Stock ticker symbol"
+          - name: date
+            description: "Date of the stock price"
+          - name: open
+            description: "Opening price of the stock"
+          - name: high
+            description: "Highest price of the stock"
+          - name: low
+            description: "Lowest price of the stock"
+          - name: close
+            description: "Closing price of the stock"
+          - name: volume
+            description: "Trading volume of the stock"

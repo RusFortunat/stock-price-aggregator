@@ -3,6 +3,9 @@ name: Stock Price Aggregator Pipeline
 on:
   workflow_dispatch:
 
+
+# TODO: pipeline should contain a step that copies python file in dag/
+# to s3 bucket, and replaces the existing file, if any
 jobs:
   build:
     name: Build

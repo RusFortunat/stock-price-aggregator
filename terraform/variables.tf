@@ -55,8 +55,19 @@ variable "dbt_image_tag" {
   default     = "latest"
 }
 
+variable "api_image_tag" {
+  description = "Tag for the API Docker image pushed to ECR"
+  type        = string
+  default     = "latest"
+}
+
 variable "tags" {
   description = "Common tags applied to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "alpha_vantage_api_key" {
+  type      = string
+  sensitive = true
 }

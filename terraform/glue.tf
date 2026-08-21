@@ -25,15 +25,20 @@ resource "aws_glue_crawler" "raw" {
   role          = aws_iam_role.glue_crawler.arn
   database_name = aws_glue_catalog_database.raw.name
 
-  s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw/"
+  catalog_target {
+    database_name = aws_glue_catalog_database.raw.name
+    tables        = [aws_glue_catalog_table.stock_prices_raw.name]
   }
-
-  // TODO: I typically do this as a part of orchestrated workflow
-  //schedule = "cron(0 11 * * ? *)" # daily, shortly after the ingestion Lambda runs
 
   schema_change_policy {
-    update_behavior = "UPDATE_IN_DATABASE"
+    update_behavior = "LOG" # don't let the crawler rename/delete your table
     delete_behavior = "LOG"
   }
+
+  configuration = jsonencode({
+    Version = 1.0
+    Grouping = { TableGroupingPolicy = "CombineCompatibleSchemas" }
+  })
+
+  //schedule = "cron(0 11 * * ? *)"
 }
