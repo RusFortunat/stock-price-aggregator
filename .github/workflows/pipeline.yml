@@ -35,7 +35,7 @@ jobs:
         run: docker build -t fastapi-stock-price .
 
       - name: Build dbt image
-        working-directory: dbt
+        working-directory: dbt-project
         run: docker build -t dbt-stock-price .
 
   deploy:
