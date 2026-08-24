@@ -3,103 +3,100 @@ name: Stock Price Aggregator Pipeline
 on:
   workflow_dispatch:
 
+env:
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+  STACK_NAME: ${{ vars.STACK_NAME }}
 
-# TODO: pipeline should contain a step that copies python file in dag/
-# to s3 bucket, and replaces the existing file, if any
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # Injestion Lambda
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Build Lambda
         working-directory: ingestion-lambda
         run: |
           npm ci
           npm run build
-          cd dist
-          zip -r lambda.zip .
+          cd dist && zip -r lambda.zip .
 
-      # FastAPI Docker image
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python dependencies
+      - name: Build FastAPI image
         working-directory: api
-        run: |
-          pip install -r requirements.txt
+        run: docker build -t fastapi-stock-price .
 
-      # dbt Docker image
-      - name: Build dbt Docker image
+      - name: Build dbt image
         working-directory: dbt
-        run: |
-          docker build -t dbt-stock-price .
+        run: docker build -t dbt-stock-price .
 
-  # ============================================================
-  # PUSH
-  # ============================================================
-  push:
-    name: Push Docker Image
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # AWS authentication goes here
-
-      - name: Login to ECR
-        ...
-
-      - name: Build Docker image
-        working-directory: dbt
-        run: |
-          docker build \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA \
-            .
-
-      - name: Push Docker image
-        run: |
-          docker push \
-            $ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA
-
-  # ============================================================
-  # DEPLOY
-  # ============================================================
   deploy:
     name: Terraform Deploy
-    needs: push
+    needs: build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
 
-      # AWS authentication goes here
-
-      - name: Terraform Init
-        working-directory: terraform
+      - working-directory: terraform
         run: terraform init
 
-      - name: Terraform Plan
-        working-directory: terraform
-        run: terraform plan
-
-      - name: Terraform Apply
-        working-directory: terraform
+      - working-directory: terraform
         run: terraform apply -auto-approve
+
+  push:
+    name: Push Images & Upload DAGs
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+
+      - name: Build & push dbt image
+        working-directory: dbt
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.STACK_NAME }}-dbt:${{ github.sha }} .
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.STACK_NAME }}-dbt:${{ github.sha }}
+
+      - name: Build & push API image
+        working-directory: api
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ env.STACK_NAME }}-api:${{ github.sha }} .
+          docker push ${{ env.ECR_REGISTRY }}/${{ env.STACK_NAME }}-api:${{ github.sha }}
+
+      - name: Force new API deployment
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.STACK_NAME }}-cluster \
+            --service ${{ env.STACK_NAME }}-api \
+            --force-new-deployment
+
+      - name: Upload ingestion Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ env.STACK_NAME }}-ingestion \
+            --zip-file fileb://ingestion-lambda/dist/lambda.zip
+
+      - name: Upload DAGs to MWAA bucket
+        run: |
+          aws s3 cp airflow/dags/stock_price_pipeline.py \
+            s3://${{ env.STACK_NAME }}-mwaa-${{ env.AWS_ACCOUNT_ID }}/dags/
