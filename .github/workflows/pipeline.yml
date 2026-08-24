@@ -2,6 +2,10 @@ name: Stock Price Aggregator Pipeline
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - main
 
 env:
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
