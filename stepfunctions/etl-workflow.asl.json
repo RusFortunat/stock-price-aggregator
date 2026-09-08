@@ -1,0 +1,82 @@
+{
+  "Comment": "Stock price aggregator daily pipeline: ingest -> crawl -> dbt transform",
+  "StartAt": "IngestStockPrices",
+  "States": {
+    "IngestStockPrices": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${lambda_arn}",
+        "Payload": {
+          "ticker": "AAPL" // TODO: Pass a list of tickers
+        }
+      },
+      "ResultPath": "$.ingestResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "CrawlRawData"
+    },
+
+    "CrawlRawData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+      "Parameters": {
+        "Name": "${crawler_name}"
+      },
+      "ResultPath": null,
+      "Next": "WaitForCrawler"
+    },
+
+    "WaitForCrawler": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "CheckCrawlerStatus"
+    },
+
+    "CheckCrawlerStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+      "Parameters": {
+        "Name": "${crawler_name}"
+      },
+      "ResultPath": "$.crawlerStatus",
+      "Next": "IsCrawlerDone"
+    },
+
+    "IsCrawlerDone": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.crawlerStatus.Crawler.State",
+          "StringEquals": "READY",
+          "Next": "RunDbtTransform"
+        }
+      ],
+      "Default": "WaitForCrawler"
+    },
+
+    "RunDbtTransform": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Parameters": {
+        "Cluster": "${ecs_cluster_arn}",
+        "TaskDefinition": "${dbt_task_def_arn}",
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": ["${subnet_ids}"],
+            "SecurityGroups": ["${security_group_id}"],
+            "AssignPublicIp": "DISABLED"
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
